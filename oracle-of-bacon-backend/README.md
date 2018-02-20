@@ -11,3 +11,13 @@ To build :
 ```
 
 To Run, execute class *com.serli.oracle.of.bacon.Application*.
+
+
+## Import data
+Data should be located in folder `./src/main/resources/imdb-data`. There should be 3 files : 
+
+- `actors.csv`
+- `movies.csv`
+- `roles.csv`
+
+To import, run `./import_imdb_data.sh`.
