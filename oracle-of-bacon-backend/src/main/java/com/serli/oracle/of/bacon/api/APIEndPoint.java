@@ -1,5 +1,6 @@
 package com.serli.oracle.of.bacon.api;
 
+import com.serli.oracle.of.bacon.broker.BroadcastBroker;
 import com.serli.oracle.of.bacon.repository.ElasticSearchRepository;
 import com.serli.oracle.of.bacon.repository.MongoDbRepository;
 import com.serli.oracle.of.bacon.repository.Neo4JRepository;
@@ -19,15 +20,28 @@ public class APIEndPoint {
     private final RedisRepository redisRepository;
     private final MongoDbRepository mongoDbRepository;
 
+    private final BroadcastBroker baconToBroker;
+
     public APIEndPoint() {
         neo4JRepository = new Neo4JRepository();
         elasticSearchRepository = new ElasticSearchRepository();
         redisRepository = new RedisRepository();
         mongoDbRepository = new MongoDbRepository();
+
+        baconToBroker = new BroadcastBroker();
+        setUpConsumers();
+    }
+
+    private void setUpConsumers(){
+        baconToBroker.addConsumer(baconToEvent -> {
+            redisRepository.addLastSearch(baconToEvent.param);
+        });
     }
 
     @Get("bacon-to?actor=:actorName")
     public String getConnectionsToKevinBacon(String actorName) {
+
+        baconToBroker.publishEvent(new BroadcastBroker.Event("BACON_TO", actorName));
 
         List<Neo4JRepository.GraphItem> connectionsToKevinBacon = neo4JRepository.getConnectionsToKevinBacon(actorName);
 
@@ -64,11 +78,7 @@ public class APIEndPoint {
 
     @Get("last-searches")
     public List<String> last10Searches() {
-        return Arrays.asList("Peckinpah, Sam",
-                "Robbins, Tim (I)",
-                "Freeman, Morgan (I)",
-                "De Niro, Robert",
-                "Pacino, Al (I)");
+        return redisRepository.getLastTenSearches();
     }
 
     @Get("actor?name=:actorName")
