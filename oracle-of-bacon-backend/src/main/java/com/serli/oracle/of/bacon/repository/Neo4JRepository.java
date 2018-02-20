@@ -1,25 +1,89 @@
 package com.serli.oracle.of.bacon.repository;
 
 
-import org.neo4j.driver.v1.AuthTokens;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.GraphDatabase;
-import org.neo4j.driver.v1.Session;
+import com.google.common.base.Function;
+import org.neo4j.driver.v1.*;
+import org.neo4j.driver.v1.types.Node;
+import org.neo4j.driver.v1.types.Path;
+import org.neo4j.driver.v1.types.Relationship;
 
-import java.util.List;
+import java.util.*;
 
 public class Neo4JRepository {
     private final Driver driver;
 
     public Neo4JRepository() {
-        this.driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "password"));
+        this.driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "neo4jneo4j"));
     }
 
-    public List<?> getConnectionsToKevinBacon(String actorName) {
-        Session session = driver.session();
+    public List<GraphItem> getConnectionsToKevinBacon(String targetActorName) {
 
-        // TODO implement Oracle of Bacon
-        return null;
+        List<GraphItem> resultsList = new ArrayList<>();
+
+        try (Session session = driver.session()){
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("sourceActor", "Bacon, Kevin (I)");
+            params.put("targetActor", targetActorName);
+
+            String request =
+                    "MATCH (sourceActor:Actor {name: {sourceActor}}), " +
+                            "(targetActor:Actor {name: {targetActor}}), " +
+                            "p = shortestPath((sourceActor)-[*]-(targetActor))\n" +
+                            "WITH p\n" +
+                            "WHERE length(p)> 1\n" +
+                            "RETURN p";
+
+
+            System.out.println("Executing request to get connections to Kevin Bacon...");
+
+            StatementResult statementResult = session.run(request, params);
+
+            while (statementResult.hasNext()){
+                resultsList.addAll(transformRecordToGraphItem(statementResult.next()));
+            }
+        }catch (Exception e){
+            System.out.println("Exception occurred : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return resultsList;
+    }
+
+    private List<GraphItem> transformRecordToGraphItem(Record record) {
+
+        List<GraphItem> resultsList = new ArrayList<>();
+
+        record.values().forEach(value -> {
+
+            Path segments = value.asPath();
+
+            segments.nodes().forEach(node -> {
+                resultsList.add(transformNodeToGraphNode(node));
+            });
+
+            segments.relationships().forEach(relationship -> {
+                resultsList.add(transformRelationshipToGraphEdge(relationship));
+            });
+        });
+
+        return resultsList;
+    }
+
+    private GraphNode transformNodeToGraphNode(Node node){
+        long id = node.id();
+        String label = node.labels().iterator().next(); // TODO not clean, could fail
+        String graphNodeTypeKey = "Movie".equals(label) ? "title" : "name";
+        String value = (String) node.asMap().get(graphNodeTypeKey); // TODO not clean, could fail
+        return new GraphNode(id, value, label);
+    }
+
+    private GraphItem transformRelationshipToGraphEdge(Relationship relationship) {
+        long id = relationship.id();
+        long source = relationship.startNodeId();
+        long target = relationship.endNodeId();
+        String value = relationship.type();
+        return new GraphEdge(id, source, target, value);
     }
 
     public static abstract class GraphItem {
