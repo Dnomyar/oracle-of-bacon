@@ -48,8 +48,6 @@ public class ElasticSearchRepository {
 
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-//        SuggestionBuilder termSuggestionBuilder =
-//                SuggestBuilders.termSuggestion(SUGGEST_NAME_FIELD).text(searchQuery);
         SuggestionBuilder completionSuggestionBuilder =
                 SuggestBuilders.completionSuggestion(SUGGEST_FIELD).text(searchQuery);
         SuggestBuilder suggestBuilder = new SuggestBuilder();
